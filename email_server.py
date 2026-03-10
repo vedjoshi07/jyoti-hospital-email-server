@@ -1,46 +1,70 @@
 from flask import Flask, request, jsonify
-import smtplib
-from email.mime.text import MIMEText
-from email.mime.multipart import MIMEMultipart
-import os
+import requests
 
 app = Flask(__name__)
 
-# Note: In a production environment, use environment variables or a config file
-SMTP_HOST: str = "smtp.gmail.com"
-SMTP_PORT: int = 587
-SMTP_USER: str = "joshived777@gmail.com" 
-SMTP_PASS: str = "fdll iooo hqwl utpv"         # MUST be a 16-character Google App Password
+RESEND_API_KEY = "re_Fet1qKFp_7zwVj57135qjmF7vTHtfeghs"
 
-@app.route('/send-email', methods=['POST'])
+
+@app.route("/send-email", methods=["POST"])
 def send_email():
+
     data = request.get_json()
+
     if not data:
-        return jsonify({"status": "error", "message": "No JSON data provided"}), 400
-        
-    to_email: str = data.get('to', '')
-    subject: str = data.get('subject', '')
-    body: str = data.get('body', '')
+        return jsonify({"status": "error", "message": "No JSON provided"}), 400
+
+    to_email = data.get("to")
+    subject = data.get("subject")
+    body = data.get("body")
 
     if not to_email or not subject or not body:
-        return jsonify({"status": "error", "message": "Missing required fields (to, subject, body)"}), 400
+        return jsonify({"status": "error", "message": "Missing fields"}), 400
 
     try:
-        msg = MIMEMultipart()
-        msg['From'] = SMTP_USER
-        msg['To'] = to_email
-        msg['Subject'] = subject
-        msg.attach(MIMEText(body, 'html'))
 
-        with smtplib.SMTP(SMTP_HOST, SMTP_PORT) as server:
-            server.starttls()
-            server.login(SMTP_USER, SMTP_PASS)
-            server.sendmail(SMTP_USER, to_email, msg.as_string())
+        url = "https://api.resend.com/emails"
 
-        return jsonify({"status": "success", "message": "Email sent successfully!"})
+        headers = {
+            "Authorization": f"Bearer {RESEND_API_KEY}",
+            "Content-Type": "application/json"
+        }
+
+        payload = {
+            "from": "Jyoti Eye Hospital <onboarding@resend.dev>",
+            "to": [to_email],
+            "subject": subject,
+            "html": body
+        }
+
+        response = requests.post(url, json=payload, headers=headers)
+
+        if response.status_code in [200, 201]:
+
+            return jsonify({
+                "status": "success",
+                "message": "Email sent successfully"
+            })
+
+        else:
+
+            return jsonify({
+                "status": "error",
+                "message": response.text
+            }), 500
+
     except Exception as e:
-        return jsonify({"status": "error", "message": str(e)}), 500
 
-if __name__ == '__main__':
-    # Running on port 5001 as per user request
-    app.run(port=5001, debug=True)
+        return jsonify({
+            "status": "error",
+            "message": str(e)
+        }), 500
+
+
+@app.route("/")
+def home():
+    return "Jyoti Hospital Email Server Running"
+
+
+if __name__ == "__main__":
+    app.run(host="0.0.0.0", port=10000)
